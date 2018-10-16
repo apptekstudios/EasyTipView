@@ -208,6 +208,20 @@ extension EasyTipView: UIGestureRecognizerDelegate {
             public var borderColor         = UIColor.clear
             public var font                = UIFont.systemFont(ofSize: 15)
             public var lineSpacing         = CGFloat(0)
+					public var shadow: Shadow?
+
+					public struct Shadow {
+						public var color         = UIColor.clear
+						public var offset        = CGSize(width: 0.0, height: 0.0)
+						public var radius        = CGFloat(0)
+						public var opacity       = Float(0)
+						init(color: UIColor = .black, offset: CGSize = .zero, radius: CGFloat = 5, opacity: Float = 0.3) {
+							self.color = color
+							self.offset = offset
+							self.radius = radius
+							self.opacity = opacity
+						}
+					}
         }
         
         public struct Positioning {
@@ -327,6 +341,8 @@ extension EasyTipView: UIGestureRecognizerDelegate {
         super.init(frame: CGRect.zero)
         
         self.backgroundColor = UIColor.clear
+
+			configureShadow()
 
         let notificationName = UIDevice.orientationDidChangeNotification
 
@@ -471,6 +487,16 @@ extension EasyTipView: UIGestureRecognizerDelegate {
 				dismiss()
 			}
     }
+
+		// MARK:- Apply Preferences -
+		func configureShadow() {
+			guard let shadow = preferences.drawing.shadow else { return }
+			self.layer.masksToBounds = false
+			self.layer.shadowColor = shadow.color.cgColor
+			self.layer.shadowOffset = shadow.offset
+			self.layer.shadowRadius = shadow.radius
+			self.layer.shadowOpacity = shadow.opacity
+		}
     
     // MARK:- Drawing -
     
