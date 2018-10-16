@@ -107,7 +107,7 @@ public extension EasyTipView {
         transform = initialTransform
         alpha = initialAlpha
         
-        let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap))
+        let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap(tapGesture:)))
         tap.delegate = self
         addGestureRecognizer(tap)
         
@@ -145,20 +145,42 @@ public extension EasyTipView {
             self.transform = CGAffineTransform.identity
         }
     }
-}
 
+	private func pointIsInsidePopup(_ point: CGPoint) -> Bool {
+		return super.point(inside: point, with: nil)
+	}
+
+	override public func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+		if self.preferences.dismissOnTapOutside {
+			return self
+		} else {
+			return super.hitTest(point, with: event)
+		}
+	}
+
+
+
+	override public func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+		if self.preferences.dismissOnTapOutside {
+			return true
+		} else {
+			return super.point(inside: point, with: event)
+		}
+	}
+}
 // MARK: - UIGestureRecognizerDelegate implementation
 
 extension EasyTipView: UIGestureRecognizerDelegate {
 
     open override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        return preferences.animating.dismissOnTap
+        return preferences.dismissOnTapInside
     }
+
 }
 
 // MARK: - EasyTipView class implementation -
 
-open class EasyTipView: UIView {
+	public class EasyTipView: UIView {
     
     // MARK:- Nested types -
     
@@ -185,6 +207,7 @@ open class EasyTipView: UIView {
             public var borderWidth         = CGFloat(0)
             public var borderColor         = UIColor.clear
             public var font                = UIFont.systemFont(ofSize: 15)
+            public var lineSpacing         = CGFloat(0)
         }
         
         public struct Positioning {
@@ -205,9 +228,10 @@ open class EasyTipView: UIView {
             public var dismissFinalAlpha    = CGFloat(0)
             public var showDuration         = 0.7
             public var dismissDuration      = 0.7
-            public var dismissOnTap         = true
         }
-        
+
+				public var dismissOnTapInside         = true
+				public var dismissOnTapOutside       = false
         public var drawing      = Drawing()
         public var positioning  = Positioning()
         public var animating    = Animating()
@@ -249,12 +273,12 @@ open class EasyTipView: UIView {
         
         [unowned self] in
         
-        #if swift(>=4.2)
-        var attributes = [NSAttributedString.Key.font : self.preferences.drawing.font]
-        #else
-        var attributes = [NSAttributedStringKey.font : self.preferences.drawing.font]
-        #endif
-        
+
+			var attributes: [NSAttributedString.Key:Any] = [
+				.font : self.preferences.drawing.font,
+				.paragraphStyle : self.paragraphStyle
+			]
+
         var textSize = self.text.boundingRect(with: CGSize(width: self.preferences.positioning.maxWidth, height: CGFloat.greatestFiniteMagnitude), options: NSStringDrawingOptions.usesLineFragmentOrigin, attributes: attributes, context: nil).size
         
         textSize.width = ceil(textSize.width)
@@ -275,6 +299,18 @@ open class EasyTipView: UIView {
         
         return contentSize
         }()
+
+    fileprivate lazy var paragraphStyle: NSMutableParagraphStyle = {
+
+        [unowned self] in
+
+        var paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.alignment = self.preferences.drawing.textAlignment
+        paragraphStyle.lineSpacing = self.preferences.drawing.lineSpacing
+        paragraphStyle.lineBreakMode = NSLineBreakMode.byWordWrapping
+
+        return paragraphStyle
+        }()
     
     // MARK: - Static variables -
     
@@ -291,12 +327,9 @@ open class EasyTipView: UIView {
         super.init(frame: CGRect.zero)
         
         self.backgroundColor = UIColor.clear
-        
-        #if swift(>=4.2)
+
         let notificationName = UIDevice.orientationDidChangeNotification
-        #else
-        let notificationName = NSNotification.Name.UIDeviceOrientationDidChange
-        #endif
+
         
         NotificationCenter.default.addObserver(self, selector: #selector(handleRotation), name: notificationName, object: nil)
     }
@@ -429,8 +462,14 @@ open class EasyTipView: UIView {
     
     // MARK:- Callbacks -
     
-    @objc func handleTap() {
-        dismiss()
+		@objc func handleTap(tapGesture: UITapGestureRecognizer) {
+			let isTapInside = pointIsInsidePopup(tapGesture.location(in: self))
+			if preferences.dismissOnTapInside && isTapInside {
+				dismiss()
+			}
+			if preferences.dismissOnTapOutside && !isTapInside {
+				dismiss()
+			}
     }
     
     // MARK:- Drawing -
@@ -526,18 +565,13 @@ open class EasyTipView: UIView {
     }
     
     fileprivate func drawText(_ bubbleFrame: CGRect, context : CGContext) {
-        let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.alignment = preferences.drawing.textAlignment
-        paragraphStyle.lineBreakMode = NSLineBreakMode.byWordWrapping
-        
-        
-        let textRect = CGRect(x: bubbleFrame.origin.x + (bubbleFrame.size.width - textSize.width) / 2, y: bubbleFrame.origin.y + (bubbleFrame.size.height - textSize.height) / 2, width: textSize.width, height: textSize.height)
-        
-        #if swift(>=4.2)
-        let attributes = [NSAttributedString.Key.font : preferences.drawing.font, NSAttributedString.Key.foregroundColor : preferences.drawing.foregroundColor, NSAttributedString.Key.paragraphStyle : paragraphStyle]
-        #else
-        let attributes = [NSAttributedStringKey.font : preferences.drawing.font, NSAttributedStringKey.foregroundColor : preferences.drawing.foregroundColor, NSAttributedStringKey.paragraphStyle : paragraphStyle]
-        #endif
+			let textRect = CGRect(x: bubbleFrame.origin.x + (bubbleFrame.size.width - textSize.width) / 2, y: bubbleFrame.origin.y + (bubbleFrame.size.height - textSize.height) / 2, width: textSize.width, height: textSize.height)
+
+			let attributes = [
+				NSAttributedString.Key.font : preferences.drawing.font,
+				NSAttributedString.Key.foregroundColor : preferences.drawing.foregroundColor,
+				NSAttributedString.Key.paragraphStyle : self.paragraphStyle
+			]
         
         text.draw(in: textRect, withAttributes: attributes)
     }
