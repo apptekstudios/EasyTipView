@@ -178,11 +178,11 @@ public class EasyTipView: UIView {
 			public var shadow: Shadow?
 
 			public struct Shadow {
-				public var color = UIColor.clear
-				public var offset = CGSize(width: 0.0, height: 0.0)
-				public var radius = CGFloat(0)
-				public var opacity = Float(0)
-				init(color: UIColor = .black, offset: CGSize = .zero, radius: CGFloat = 5, opacity: Float = 0.3) {
+				public let color: UIColor
+				public let offset: CGSize
+				public let radius: CGFloat
+				public let opacity: Float
+				public init(color: UIColor = .black, offset: CGSize = .zero, radius: CGFloat = 5, opacity: Float = 0.3) {
 					self.color = color
 					self.offset = offset
 					self.radius = radius
