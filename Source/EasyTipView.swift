@@ -91,6 +91,8 @@ public extension EasyTipView {
 			self.alpha = 1
 		}
 
+		isDismissed = false
+
 		if animated {
 			UIView.animate(withDuration: preferences.animating.showDuration, delay: 0, usingSpringWithDamping: damping, initialSpringVelocity: velocity, options: [.curveEaseInOut], animations: animations, completion: nil)
 		} else {
@@ -104,6 +106,8 @@ public extension EasyTipView {
 	 - parameter completion: Completion block to be executed after the EasyTipView is dismissed.
 	 */
 	public func dismiss(withCompletion completion: (() -> Void)? = nil) {
+		isDismissed = true
+
 		let damping = preferences.animating.springDamping
 		let velocity = preferences.animating.springVelocity
 
@@ -118,12 +122,12 @@ public extension EasyTipView {
 		}
 	}
 
-	private func pointIsInsidePopup(_ point: CGPoint) -> Bool {
+	private func pointSitsInsidePopup(_ point: CGPoint) -> Bool {
 		return super.point(inside: point, with: nil)
 	}
 
 	public override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-		if preferences.dismissOnTapOutside {
+		if preferences.dismissOnTapOutside && !isDismissed {
 			return self
 		} else {
 			return super.hitTest(point, with: event)
@@ -131,7 +135,7 @@ public extension EasyTipView {
 	}
 
 	public override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-		if preferences.dismissOnTapOutside {
+		if preferences.dismissOnTapOutside && !isDismissed {
 			return true
 		} else {
 			return super.point(inside: point, with: event)
@@ -246,6 +250,7 @@ public class EasyTipView: UIView {
 	fileprivate var arrowTip = CGPoint.zero
 	open fileprivate(set) var preferences: Preferences
 	public let text: String
+	fileprivate var isDismissed: Bool = false
 
 	// MARK: - Lazy variables -
 
@@ -435,7 +440,7 @@ public class EasyTipView: UIView {
 	// MARK: - Callbacks -
 
 	@objc func handleTap(tapGesture: UITapGestureRecognizer) {
-		let isTapInside = pointIsInsidePopup(tapGesture.location(in: self))
+		let isTapInside = pointSitsInsidePopup(tapGesture.location(in: self))
 		if preferences.dismissOnTapInside && isTapInside {
 			dismiss()
 		}
