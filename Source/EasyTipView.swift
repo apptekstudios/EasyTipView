@@ -150,6 +150,8 @@ public extension EasyTipView {
             self.transform = finalTransform
             self.alpha = 1
         }
+
+		isDismissed = false
         
         if animated {
             UIView.animate(withDuration: preferences.animating.showDuration, delay: 0, usingSpringWithDamping: damping, initialSpringVelocity: velocity, options: [.curveEaseInOut], animations: animations, completion: nil)
@@ -164,20 +166,44 @@ public extension EasyTipView {
      - parameter completion: Completion block to be executed after the EasyTipView is dismissed.
      */
     func dismiss(withCompletion completion: (() -> ())? = nil){
-        
+        isDismissed = true
+
         let damping = preferences.animating.springDamping
         let velocity = preferences.animating.springVelocity
         
         UIView.animate(withDuration: preferences.animating.dismissDuration, delay: 0, usingSpringWithDamping: damping, initialSpringVelocity: velocity, options: [.curveEaseInOut], animations: { 
             self.transform = self.preferences.animating.dismissTransform
             self.alpha = self.preferences.animating.dismissFinalAlpha
-        }) { (finished) -> Void in
+        }) { (_) -> Void in
             completion?()
             self.delegate?.easyTipViewDidDismiss(self)
             self.removeFromSuperview()
             self.transform = CGAffineTransform.identity
         }
     }
+
+}
+
+extension EasyTipView {
+	private func pointIsInsidePopup(_ point: CGPoint) -> Bool {
+		return super.point(inside: point, with: nil)
+	}
+
+	override open func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+		if self.preferences.dismissOnTapOutside {
+			return self
+		} else {
+			return super.hitTest(point, with: event)
+		}
+	}
+
+	override open func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+		if self.preferences.dismissOnTapOutside {
+			return true
+		} else {
+			return super.point(inside: point, with: event)
+		}
+	}
 }
 
 // MARK: - UIGestureRecognizerDelegate implementation
@@ -185,7 +211,7 @@ public extension EasyTipView {
 extension EasyTipView: UIGestureRecognizerDelegate {
 
     open override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        return preferences.animating.dismissOnTap
+        return preferences.dismissOnTapInside
     }
 }
 
@@ -218,10 +244,24 @@ open class EasyTipView: UIView {
             public var borderWidth         = CGFloat(0)
             public var borderColor         = UIColor.clear
             public var font                = UIFont.systemFont(ofSize: 15)
-            public var shadowColor         = UIColor.clear
-            public var shadowOffset        = CGSize(width: 0.0, height: 0.0)
-            public var shadowRadius        = CGFloat(0)
-            public var shadowOpacity       = CGFloat(0)
+			public var shadow: Shadow?	   = nil
+
+			public var hasBorder : Bool {
+				return borderWidth > 0 && borderColor != UIColor.clear
+			}
+
+			public struct Shadow {
+				public var color: UIColor
+				public var offset: CGSize
+				public var radius: CGFloat
+				public var opacity: Float
+				public init(color: UIColor = .black, offset: CGSize = .zero, radius: CGFloat = 5, opacity: Float = 0.3) {
+					self.color = color
+					self.offset = offset
+					self.radius = radius
+					self.opacity = opacity
+				}
+			}
         }
         
         public struct Positioning {
@@ -242,19 +282,14 @@ open class EasyTipView: UIView {
             public var dismissFinalAlpha    = CGFloat(0)
             public var showDuration         = 0.7
             public var dismissDuration      = 0.7
-            public var dismissOnTap         = true
         }
         
         public var drawing      = Drawing()
         public var positioning  = Positioning()
         public var animating    = Animating()
-        public var hasBorder : Bool {
-            return drawing.borderWidth > 0 && drawing.borderColor != UIColor.clear
-        }
-        
-        public var hasShadow : Bool {
-            return drawing.shadowOpacity > 0 && drawing.shadowColor != UIColor.clear
-        }
+
+		public var dismissOnTapInside   = true
+		public var dismissOnTapOutside 	= false
         
         public init() {}
     }
@@ -298,6 +333,8 @@ open class EasyTipView: UIView {
     fileprivate var arrowTip = CGPoint.zero
     fileprivate(set) open var preferences: Preferences
     private let content: Content
+
+	fileprivate var isDismissed: Bool = false
     
     // MARK: - Lazy variables -
     
@@ -551,7 +588,7 @@ open class EasyTipView: UIView {
         
         paintBubble(context)
         
-        if preferences.hasBorder {
+        if preferences.drawing.hasBorder {
             drawBorder(contourPath, context: context)
         }
     }
@@ -620,12 +657,12 @@ open class EasyTipView: UIView {
     }
     
     fileprivate func drawShadow() {
-        if preferences.hasShadow {
+        if let shadow = preferences.drawing.shadow {
             self.layer.masksToBounds = false
-            self.layer.shadowColor = preferences.drawing.shadowColor.cgColor
-            self.layer.shadowOffset = preferences.drawing.shadowOffset
-            self.layer.shadowRadius = preferences.drawing.shadowRadius
-            self.layer.shadowOpacity = Float(preferences.drawing.shadowOpacity)
+            self.layer.shadowColor = shadow.color.cgColor
+            self.layer.shadowOffset = shadow.offset
+            self.layer.shadowRadius = shadow.radius
+            self.layer.shadowOpacity = shadow.opacity
         }
     }
     
